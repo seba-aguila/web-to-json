@@ -7,8 +7,8 @@ import { Analytics } from "@vercel/analytics/react"
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Website to URL",
-  description: "Transform any website to a JSON easily",
+  title: "Website to JSON",
+  description: "Transform any website's text to a JSON file easily",
 };
 
 export default function RootLayout({
