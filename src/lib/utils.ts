@@ -11,6 +11,12 @@ export const extractFormattedText = (html: string) => {
   const $ = cheerio.load(html);
   let formattedText = "";
 
+  // Extract meta description
+  const metaDescription = $('meta[name="description"]').attr("content");
+  if (metaDescription) {
+    formattedText += `meta_description: ${metaDescription}\n\n`;
+  }
+
   $("body")
     .find("*")
     .each((_, element) => {
@@ -22,7 +28,7 @@ export const extractFormattedText = (html: string) => {
       }
 
       const text = $element.clone().children().remove().end().text().trim();
-      if (text) {
+      if (text || tag === "img") {
         switch (tag) {
           case "h1":
             formattedText += `h1: ${text}\n\n`;
@@ -34,7 +40,15 @@ export const extractFormattedText = (html: string) => {
             formattedText += `h3: ${text}\n\n`;
             break;
           case "p":
-            formattedText += `${text}\n\n`;
+            formattedText += `p: ${text}\n\n`;
+            break;
+          case "a":
+            formattedText += `link: ${text} (${$element.attr("href")})\n`;
+            break;
+          case "img":
+            formattedText += `image: ${$element.attr("alt")} (${$element.attr(
+              "src"
+            )})\n`;
             break;
           case "li":
             formattedText += `- ${text}\n`;
@@ -54,23 +68,45 @@ export const extractTextByTag = (html: string) => {
   const $ = cheerio.load(html);
   const tagsMap = {} as any;
 
-  $("*").each((_index, element) => {
-    // @ts-ignore
-    const tag = element.tagName.toLowerCase();
-    const text = $(element).text().trim();
+  // Extract meta description
+  const metaDescription = $('meta[name="description"]').attr("content");
+  if (metaDescription) {
+    tagsMap["meta_description"] = [{ meta_description: metaDescription }];
+  }
 
-    if (text !== "" && tag !== "script" && tag != "html") {
+  $("*").each((_index, element) => {
+    const tag = element.name.toLowerCase();
+    const $element = $(element);
+
+    if (["script", "style", "noscript", "html", "head", "body"].includes(tag)) {
+      return; // Skip these tags
+    }
+
+    let text = $element.clone().children().remove().end().text().trim();
+
+    if (text || tag === "img") {
       if (!tagsMap[tag]) {
         tagsMap[tag] = [];
       }
 
       const position = tagsMap[tag].length + 1;
       const key = position === 1 ? tag : `${tag}_${position}`;
-      tagsMap[tag].push({ [key]: text });
+
+      switch (tag) {
+        case "a":
+          tagsMap[tag].push({ [key]: `${text} (${$element.attr("href")})` });
+          break;
+        case "img":
+          tagsMap[tag].push({
+            [key]: `${$element.attr("alt")} (${$element.attr("src")})`,
+          });
+          break;
+        default:
+          tagsMap[tag].push({ [key]: text });
+      }
     }
   });
 
-  console.log(tagsMap);
   return tagsMap;
 };
 
@@ -126,6 +162,36 @@ export const getTextFromHtml = (html: string) => {
   }
 
   return tagsMap;
+};
+
+export const generateSEOStats = (formattedText: string) => {
+  const lines = formattedText.split("\n");
+  let stats = {
+    wordCount: 0,
+    headingCount: { h1: 0, h2: 0, h3: 0 },
+    paragraphCount: 0,
+    linkCount: 0,
+    imageCount: 0,
+    hasMetaDescription: false,
+  };
+
+  lines.forEach((line) => {
+    const words = line
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+    stats.wordCount += words.length;
+
+    if (line.startsWith("h1:")) stats.headingCount.h1++;
+    if (line.startsWith("h2:")) stats.headingCount.h2++;
+    if (line.startsWith("h3:")) stats.headingCount.h3++;
+    if (line.startsWith("p:")) stats.paragraphCount++;
+    if (line.startsWith("link:")) stats.linkCount++;
+    if (line.startsWith("image:")) stats.imageCount++;
+    if (line.startsWith("meta_description:")) stats.hasMetaDescription = true;
+  });
+
+  return stats;
 };
 
 const isWhitespace = (str: string) => /\s/.test(str);
