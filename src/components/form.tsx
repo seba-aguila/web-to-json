@@ -4,18 +4,22 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { FormEvent, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { generateSEOStats } from "@/lib/utils";
+import Spinner from "./Spinner";
 
 const Form = () => {
   const { toast } = useToast();
-  const [formattedText, setFormattedText] = useState<string | null>(null);
+  const [simplifiedText, setSimplifiedText] = useState<string | null>(null);
   const [jsonData, setJsonData] = useState<any>(null);
   const [seoStats, setSeoStats] = useState<any>(null);
+  const [claudeAnalysis, setClaudeAnalysis] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false); // New state for loading
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
+
+    setIsLoading(true); // Set loading to true when starting the request
 
     try {
       const res = await fetch(
@@ -25,15 +29,14 @@ const Form = () => {
           })
       );
       const data = await res.json();
-      if (data.formattedText) {
-        setFormattedText(data.formattedText);
-        setJsonData(data); // Store the entire JSON response
-        const stats = generateSEOStats(data.formattedText);
-        setSeoStats(stats);
+      if (data.simplifiedText) {
+        setSimplifiedText(data.simplifiedText);
+        setJsonData(data.jsonData);
+        setSeoStats(data.seoStats);
+        setClaudeAnalysis(data.claudeAnalysis);
         toast({
           title: "Success!",
-          description:
-            "Text extracted successfully. You can now analyze and download it.",
+          description: "Content extracted and analyzed successfully.",
         });
       } else {
         throw new Error("No formatted text received");
@@ -42,14 +45,17 @@ const Form = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Sorry, we couldn't extract the text from the website.",
+        description:
+          "Sorry, we couldn't extract or analyze the content from the website.",
       });
+    } finally {
+      setIsLoading(false); // Set loading to false when the request is complete
     }
   };
 
   const handleDownloadText = () => {
-    if (formattedText) {
-      const blob = new Blob([formattedText], { type: "text/plain" });
+    if (simplifiedText) {
+      const blob = new Blob([simplifiedText], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -86,35 +92,56 @@ const Form = () => {
           name="url"
           type="url"
         />
-        <Button type="submit">Extract</Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? <Spinner /> : "Extract"}
+        </Button>
       </form>
-      {formattedText && (
+
+      {isLoading && (
+        <div className="mt-4">
+          <Spinner />
+          <p className="text-center mt-2">Analyzing content...</p>
+        </div>
+      )}
+
+      {simplifiedText && (
         <div className="mt-4 w-full">
+          <h3 className="text-lg font-semibold">Simplified Content:</h3>
           <pre className="bg-gray-100 p-4 rounded-md overflow-auto max-h-60 text-sm text-black">
-            {formattedText}
+            {simplifiedText}
           </pre>
           <div className="flex gap-2 mt-2">
             <Button onClick={handleDownloadText}>Download Text</Button>
             <Button onClick={handleDownloadJSON}>Download JSON</Button>
           </div>
-          {seoStats && (
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold">SEO Stats:</h3>
-              <ul className="list-disc pl-5">
-                <li>Word Count: {seoStats.wordCount}</li>
-                <li>
-                  Headings: H1 ({seoStats.headingCount.h1}), H2 (
-                  {seoStats.headingCount.h2}), H3 ({seoStats.headingCount.h3})
-                </li>
-                <li>Paragraphs: {seoStats.paragraphCount}</li>
-                <li>Links: {seoStats.linkCount}</li>
-                <li>Images: {seoStats.imageCount}</li>
-                <li>
-                  Meta Description: {seoStats.hasMetaDescription ? "Yes" : "No"}
-                </li>
-              </ul>
-            </div>
-          )}
+        </div>
+      )}
+
+      {seoStats && (
+        <div className="mt-4 w-full">
+          <h3 className="text-lg font-semibold">SEO Stats:</h3>
+          <ul className="list-disc pl-5">
+            <li>Word Count: {seoStats.wordCount}</li>
+            <li>
+              Headings: H1 ({seoStats.headingCount.h1}), H2 (
+              {seoStats.headingCount.h2}), H3 ({seoStats.headingCount.h3})
+            </li>
+            <li>Paragraphs: {seoStats.paragraphCount}</li>
+            <li>Links: {seoStats.linkCount}</li>
+            <li>Images: {seoStats.imageCount}</li>
+            <li>
+              Meta Description: {seoStats.hasMetaDescription ? "Yes" : "No"}
+            </li>
+          </ul>
+        </div>
+      )}
+
+      {claudeAnalysis && (
+        <div className="mt-4 w-full">
+          <h3 className="text-lg font-semibold">Claude's Analysis:</h3>
+          <div className="bg-gray-100 p-4 rounded-md overflow-auto max-h-60 text-sm text-black">
+            {claudeAnalysis}
+          </div>
         </div>
       )}
     </div>

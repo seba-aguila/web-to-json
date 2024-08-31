@@ -2,6 +2,7 @@ import {
   extractFormattedText,
   extractTextByTag,
   generateSEOStats,
+  analyzeWithClaude,
 } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -10,13 +11,19 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(url);
     const html = await res.text();
-    const formattedText = extractFormattedText(html);
+    const { simplifiedText, detailedText } = extractFormattedText(html);
     const jsonData = extractTextByTag(html);
-    const seoStats = generateSEOStats(formattedText);
+    const seoStats = generateSEOStats(detailedText);
+
+    // Get Claude's analysis using the simplified text
+    const claudeAnalysis = await analyzeWithClaude(simplifiedText);
+
     return NextResponse.json({
-      formattedText,
+      simplifiedText,
+      detailedText,
       jsonData,
       seoStats,
+      claudeAnalysis,
       url,
       extractionDate: new Date().toISOString(),
     });
