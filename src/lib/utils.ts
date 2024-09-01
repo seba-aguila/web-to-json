@@ -89,6 +89,7 @@ export const extractTextByTag = (html: string) => {
   }
 
   $("*").each((_index, element) => {
+    // @ts-expect-error
     const tag = element.name.toLowerCase();
     const $element = $(element);
 
